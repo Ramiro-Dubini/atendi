@@ -15,7 +15,9 @@
         <h1 class="title">Bienvenido a Atendi</h1>
     </header>
     <main>
-        <button class="btn">Tomar asistencia</button>
+        <form method="POST" action="{{ url_for('recognize') }}">
+            <button type="submit" class="btn">Tomar asistencia</button>
+        </form>               
     </main>
 </body>
 </html>
