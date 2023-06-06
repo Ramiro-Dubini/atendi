@@ -1,0 +1,4 @@
+/vercel-python-app
+.vercel
+vercel.json
+/__pycache__
