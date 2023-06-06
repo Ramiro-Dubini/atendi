@@ -2,12 +2,16 @@ import cv2
 import os
 import face_recognition as fr
 import pandas as pd
+
 from flask import Flask, render_template
+
 
 app = Flask(__name__)
 
 # Ruta de la carpeta de imágenes de los alumnos
-imageFacesPath = "C:/Users/Ramiro/Documents/Code/script/fotos_alumnos"
+
+base_dir = os.path.dirname(os.path.realpath(__file__))
+imageFacesPath = base_dir + "/fotos_alumnos"
 
 # Codificar los rostros extraídos
 facesEncodings = []
