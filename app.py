@@ -25,6 +25,7 @@ for file_name in os.listdir(imageFacesPath):
     facesNames.append(file_name.split(".")[0])
 
 # Crear un DataFrame para el registro de personas reconocidas
+# TODO: use a database, like PostgreSQL or MySQL.
 registro_df = pd.DataFrame(columns=['Nombre', 'Archivo_JPG'])
 
 # Detector facial
@@ -90,4 +91,3 @@ def run():
 def recognize():
     recognize_faces()
     return render_template('result.html', tables=[registro_df.to_html(classes='data', header='true')], titles=registro_df.columns.values)
-
