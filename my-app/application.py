@@ -8,7 +8,8 @@ import pandas as pd
 app = Flask(__name__)
 
 # Ruta de la carpeta de imágenes de los alumnos
-imageFacesPath = "C:/Users/Ramiro/Documents/Code/script/my-app/fotos_alumnos"
+base_dir = os.path.dirname(os.path.realpath(__file__))
+imageFacesPath = base_dir + "/fotos_alumnos"
 
 facesEncodings = []
 facesNames = []
