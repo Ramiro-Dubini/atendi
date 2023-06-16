@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for, session
 import threading
 import cv2
 import os
@@ -6,6 +6,7 @@ import face_recognition as fr
 import pandas as pd
 
 app = Flask(__name__)
+app.secret_key = 'atendi'
 
 # Ruta de la carpeta de imágenes de los alumnos
 base_dir = os.path.dirname(os.path.realpath(__file__))
@@ -36,31 +37,71 @@ def deteccion_rostros():
         if not ret:
             break
         frame = cv2.flip(frame, 1)
-        orig = frame.copy()
-        faces = faceClassif.detectMultiScale(frame, 1.1, 5)
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        faces = faceClassif.detectMultiScale(gray, 1.3, 5)
 
-        # (Resto de tu código)...
-        
+        for (x,y,w,h) in faces:
+            roi_frame = frame[y:y+h, x:x+w]
+            roi_frame = cv2.cvtColor(roi_frame, cv2.COLOR_BGR2RGB)
+            encoding_current_frame = fr.face_encodings(roi_frame)
+
+            for encoding in encoding_current_frame:
+                matches = fr.compare_faces(facesEncodings, encoding)
+                if True in matches:
+                    match_index = matches.index(True)
+                    name = facesNames[match_index]
+                    if not any(registro_df['Nombre'] == name):
+                        registro_df.loc[len(registro_df)] = [name, f"{name.replace(' ', '_')}.jpg"]
     cap.release()
     cv2.destroyAllWindows()
 
 
+# Dirección de la página con flask
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
         if 'start' in request.form:
             detener_deteccion.clear()
             threading.Thread(target=deteccion_rostros).start()
+            session['estado'] = 'Reconociendo rostros'
         elif 'stop' in request.form:
             detener_deteccion.set()
+            session['estado'] = 'Alumnos registrados'
         return redirect(url_for('resultados'))
     return render_template('index.html')
 
 
 @app.route('/resultados')
 def resultados():
-    return render_template('result.html', datos=registro_df.to_dict(orient='records'))
+    estado = session.get('estado', 'Error')
+    return render_template('result.html', datos=registro_df.to_dict(orient='records'), estado=estado)
 
+@app.route('/finalizar', methods=['POST'])
+def finalizar():
+    detener_deteccion.set()
+    if registro_df.empty:
+        session['estado'] = 'No se reconocieron rostros'
+    else:
+        session['estado'] = 'Se reconocieron rostros'
+    return redirect(url_for('resultados'))
+
+@app.route('/reiniciar', methods=['POST'])
+def reiniciar():
+    global registro_df
+    # Limpia el DataFrame
+    registro_df = pd.DataFrame(columns=['Nombre', 'Archivo_JPG'])
+    # Inicia de nuevo la detección de rostros
+    detener_deteccion.clear()
+    threading.Thread(target=deteccion_rostros).start()
+    session['estado'] = 'Reconociendo rostros'
+    return redirect(url_for('resultados'))
+
+@app.route('/confirmar', methods=['POST'])
+def confirmar():
+    # Detiene la detección de rostros
+    detener_deteccion.set()
+    session['estado'] = 'Presentes confirmados'
+    return redirect(url_for('resultados'))
 
 if __name__ == '__main__':
     app.run(debug=True)

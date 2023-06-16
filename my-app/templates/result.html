@@ -9,13 +9,27 @@
   <title>Resultados de la asistencia</title>
 </head>
 <body>
-  <h1>Resultados de la asistencia</h1>
+  <div class="container">
+    <h1>Resultados de la asistencia</h1>
+    <h2>Estado: {{ estado }}</h2> 
+    <div class="controls">
+      <form action="/finalizar" method="post">
+        <button type="submit" class ="btn" value="Finalizar">Finalizar</button>
+      </form>
+      <form action="/reiniciar" method="post">
+        <button type="submit" class ="btn" value="reiniciar">Reiniciar</button>
+      </form>
+      <form action="/confirmar" method="post">
+        <button type="submit" class ="btn" value="Confirmar">Confirmar</button>
+      </form>
+    </div>
+    <main>
+      <ul>
+        {% for row in datos %}
+          <li>{{ row['Nombre'].replace('_', '-') }}</li>
+        {% endfor %}
+      </ul>
+    </main>
+  </div>
 </body>
-<main>
-  <ul>
-    {% for row in datos %}
-      <li>{{ row['Nombre'] }} - {{ row['Archivo_JPG'] }}</li>
-    {% endfor %}
-  </ul>
-</main>
 </html>
