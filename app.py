@@ -2,18 +2,23 @@ import cv2
 import os
 import face_recognition as fr
 import pandas as pd
+import threading
 
-from flask import Flask, render_template
+from flask import (Flask, 
+                   redirect, 
+                   render_template, 
+                   request, 
+                   session, 
+                   url_for,)
 
 
 app = Flask(__name__)
+app.secret_key = 'atendi'
 
 # Ruta de la carpeta de imágenes de los alumnos
-
 base_dir = os.path.dirname(os.path.realpath(__file__))
 imageFacesPath = base_dir + "/fotos_alumnos"
 
-# Codificar los rostros extraídos
 facesEncodings = []
 facesNames = []
 for file_name in os.listdir(imageFacesPath):
@@ -24,70 +29,89 @@ for file_name in os.listdir(imageFacesPath):
     facesEncodings.append(f_coding)
     facesNames.append(file_name.split(".")[0])
 
-# Crear un DataFrame para el registro de personas reconocidas
-# TODO: use a database, like PostgreSQL or MySQL.
 registro_df = pd.DataFrame(columns=['Nombre', 'Archivo_JPG'])
 
-# Detector facial
-faceClassif = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
+# Control de detección
+detener_deteccion = threading.Event()
 
-@app.route('/')
-def index():
-    return render_template('index.html')
 
-def recognize_faces():
+def deteccion_rostros():
     cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+    faceClassif = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
 
-    while True:
+    while not detener_deteccion.is_set():
         ret, frame = cap.read()
         if not ret:
             break
         frame = cv2.flip(frame, 1)
-        orig = frame.copy()
-        faces = faceClassif.detectMultiScale(frame, 1.1, 5)
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        faces = faceClassif.detectMultiScale(gray, 1.3, 5)
 
-        for (x, y, w, h) in faces:
-            face = orig[y:y + h, x:x + w]
-            face = cv2.cvtColor(face, cv2.COLOR_BGR2RGB)
-            face_encodings = fr.face_encodings(face, num_jitters=10)
-            if len(face_encodings) > 0:
-                actual_face_encoding = face_encodings[0]
-                result = fr.compare_faces(facesEncodings, actual_face_encoding)
-                if True in result:
-                    index = result.index(True)
-                    name = facesNames[index]
-                    archivo_jpg = f"{name}.jpg"
-                    color = (125, 220, 0)
-                    # Registrar en el DataFrame si la persona no ha sido registrada previamente
-                    if name not in registro_df['Nombre'].values:
-                        registro_df = pd.concat([registro_df, pd.DataFrame({'Nombre': [name], 'Archivo_JPG': [archivo_jpg]})], ignore_index=True)
-                else:
-                    name = "Desconocido"
-                    archivo_jpg = None
-                    color = (50, 50, 255)
-            else: 
-                name = "Desconocido"
-                archivo_jpg = None
-                color = (50, 50, 255)
+        for (x,y,w,h) in faces:
+            roi_frame = frame[y:y+h, x:x+w]
+            roi_frame = cv2.cvtColor(roi_frame, cv2.COLOR_BGR2RGB)
+            encoding_current_frame = fr.face_encodings(roi_frame)
 
-            cv2.rectangle(frame, (x, y + h), (x + w, y + h + 30), color, -1)
-            cv2.rectangle(frame, (x, y), (x + w, y + h), color, 2)
-            cv2.putText(frame, name, (x, y + h + 25), 2, 1, (255, 255, 255), 2, cv2.LINE_AA)
-
-        cv2.imshow("Frame", frame)
-        k = cv2.waitKey(1) & 0xFF
-        if k == 27:
-            break
-    
+            for encoding in encoding_current_frame:
+                matches = fr.compare_faces(facesEncodings, encoding)
+                if True in matches:
+                    match_index = matches.index(True)
+                    name = facesNames[match_index]
+                    if not any(registro_df['Nombre'] == name):
+                        registro_df.loc[len(registro_df)] = [name, f"{name.replace(' ', '_')}.jpg"]
     cap.release()
     cv2.destroyAllWindows()
 
-@app.route('/recognize')
-def run():
-    recognize_faces()
-    return render_template('result.html', tables=[registro_df.to_html(classes='data', header='true')], titles=registro_df.columns.values)
 
-@app.route('/recognize', methods=['POST'])
-def recognize():
-    recognize_faces()
-    return render_template('result.html', tables=[registro_df.to_html(classes='data', header='true')], titles=registro_df.columns.values)
+@app.route('/', methods=['GET', 'POST'])
+def index():
+    if request.method == 'POST':
+        if 'start' in request.form:
+            detener_deteccion.clear()
+            threading.Thread(target=deteccion_rostros).start()
+            session['estado'] = 'Reconociendo rostros'
+        elif 'stop' in request.form:
+            detener_deteccion.set()
+            session['estado'] = 'Alumnos registrados'
+        return redirect(url_for('resultados'))
+    return render_template('index.html')
+
+
+@app.route('/resultados')
+def resultados():
+    estado = session.get('estado', 'Error')
+    return render_template('result.html', datos=registro_df.to_dict(orient='records'), estado=estado)
+
+
+@app.route('/finalizar', methods=['POST'])
+def finalizar():
+    detener_deteccion.set()
+    if registro_df.empty:
+        session['estado'] = 'No se reconocieron rostros'
+    else:
+        session['estado'] = 'Se reconocieron rostros'
+    return redirect(url_for('resultados'))
+
+
+@app.route('/reiniciar', methods=['POST'])
+def reiniciar():
+    global registro_df
+    # Limpia el DataFrame
+    registro_df = pd.DataFrame(columns=['Nombre', 'Archivo_JPG'])
+    # Inicia de nuevo la detección de rostros
+    detener_deteccion.clear()
+    threading.Thread(target=deteccion_rostros).start()
+    session['estado'] = 'Reconociendo rostros'
+    return redirect(url_for('resultados'))
+
+
+@app.route('/confirmar', methods=['POST'])
+def confirmar():
+    # Detiene la detección de rostros
+    detener_deteccion.set()
+    session['estado'] = 'Presentes confirmados'
+    return redirect(url_for('resultados'))
+
+
+if __name__ == '__main__':
+    app.run(debug=True)

@@ -6,18 +6,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="shortcut icon" type="image/x-icon" href="./src/logo.png">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto">
-    <link rel="stylesheet" type="text/css" href="{{ url_for('static',filename='styled.css') }}">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css') }}">
     <style>body {font-family: 'Roboto', sans-serif;}</style>
     <title>Atendi</title>
 </head>
 <body>
     <header>
-        <h1 class="title">Bienvenido a Atendi</h1>
+        <h1 class="main-title">Bienvenido a Atendi</h1>
     </header>
     <main>
-        <form method="POST" action="{{ url_for('recognize') }}">
-            <button type="submit" class="btn">Tomar asistencia</button>
-        </form>               
+        <form action="/" method="post">
+            <button type="submit" name="start" class="main-btn">Tomar asistencia</button>
+    </form>             
     </main>
 </body>
 </html>

@@ -2,12 +2,34 @@
 <html>
 <head>
   <meta charset="UTF-8">
+  <link rel="shortcut icon" type="image/x-icon" href="./src/logo.png">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto">
+  <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css') }}">
+  <style>body {font-family: 'Roboto', sans-serif;}</style>
   <title>Resultados de la asistencia</title>
 </head>
 <body>
-  <h1>Resultados de la asistencia</h1>
-  <table>
-    {{ tables[0] }}
-  </table>
+  <div class="container">
+    <h1>Resultados de la asistencia</h1>
+    <h2>Estado: {{ estado }}</h2> 
+    <div class="controls">
+      <form action="/finalizar" method="post">
+        <button type="submit" class ="btn" value="Finalizar">Finalizar</button>
+      </form>
+      <form action="/reiniciar" method="post">
+        <button type="submit" class ="btn" value="reiniciar">Reiniciar</button>
+      </form>
+      <form action="/confirmar" method="post">
+        <button type="submit" class ="btn" value="Confirmar">Confirmar</button>
+      </form>
+    </div>
+    <main>
+      <ul>
+        {% for row in datos %}
+          <li>{{ row['Nombre'].replace('_', '-') }}</li>
+        {% endfor %}
+      </ul>
+    </main>
+  </div>
 </body>
 </html>
